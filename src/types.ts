@@ -6,14 +6,48 @@ export type ProductCategory =
   | 'ทั่วไป/อื่นๆ'
   | string;
 
+// ประเภทเอกสารรอจับคู่ (PO, RR, ตั๋วชั่งปลายทาง)
+export type PendingDocType = 'PO' | 'RR' | 'DEST_TICKET';
+
+export interface PendingDocument {
+  id: string;
+  docType: PendingDocType;
+  docNo: string;               // เช่น "PO6800178", "RR6811089", "TK-DEST-8891"
+  date: string;                // วันที่เอกสาร เช่น "1/12/2568"
+  truckNo?: string;            // ทะเบียนรถ (ถ้ามี)
+  vendorOrQuarry?: string;     // ผู้ขาย / โรงโม่ / ผู้ตรวจรับ
+  description?: string;        // รายละเอียด / หมายเหตุ
+  
+  // ข้อมูลเฉพาะตามประเภท
+  poAmount?: number;           // ยอดเงินตาม PO (ถ้ามี)
+  poItems?: string[];          // รายการสินค้าใน PO
+  
+  // กรณีตั๋วปลายทาง
+  destGrossWt?: number;        // รถหนักปลายทาง (ตัน)
+  destTareWt?: number;         // รถเบาปลายทาง (ตัน)
+  destNetWt?: number;          // น้ำหนักสุทธิปลายทาง (ตัน)
+  
+  // สถานะการจับคู่
+  status: 'pending' | 'matched';
+  matchedRecordId?: string;    // ID ของแถวในตารางหลักที่ชนบิลด้วย
+  matchedTicketNo?: string;    // เลขตั๋วต้นทางที่ผูก
+  matchedAt?: string;          // วันเวลาที่ทำการชนบิล
+  source?: 'manual' | 'line_bot' | 'import';
+  imageUrl?: string;           // รูปถ่ายบิล (ถ้ามี)
+}
+
 export interface ConstructionLogRecord {
   id: string;
+  // Internal System Document ID (เลขที่เอกสารรันอัตโนมัติภายในระบบ เพื่ออ้างอิงถาวร)
+  internalDocNo?: string;      // เช่น "DOC-2509-0001", "DOC-2509-0002"
+  billImageUrl?: string;       // ภาพถ่ายบิลจริง / ใบชั่ง สำหรับตรวจสอบหรือเปรียบเทียบ
+
   // Group 1: ข้อมูลวันที่ & เอกสาร
   category: ProductCategory;
-  date: string;            // เช่น "1/12/2568"
   poNo: string;            // เช่น "PO6800178"
-  ticketNo: string;        // เช่น "1264000460"
   rrNo: string;            // เช่น "RR6811089"
+  date: string;            // เช่น "1/12/2568"
+  ticketNo: string;        // เช่น "1264000460"
 
   // Group 2: สถานที่ & ขนส่ง
   vendor: string;          // ผู้รับเหมา / บริษัท เช่น "ช.หน่อง"
@@ -52,10 +86,16 @@ export interface ConstructionLogRecord {
   extraFee: number;                // ค่าบรรทุกต่อหน่วยเดิม (backward compatibility)
   totalAmount: number;     // รวมเงินทั้งสิ้น = (materialAmount + freightAmount)
 
+  // รูปแบบการชำระเงิน (3 รูปแบบหลักสำหรับงานหินและขนส่ง)
+  // 'split' = จ่ายแยก (ผู้ขาย: ค่าสินค้า, ผู้รับจ้างขน: ค่าขนส่ง)
+  // 'hauler_all' = จ่ายให้ผู้รับจ้างขน (ค่าสินค้า + ค่าขนส่ง)
+  // 'seller_all' = จ่ายให้ผู้ขาย (ค่าสินค้า + ค่าขนส่ง)
+  paymentRecipientType?: 'split' | 'hauler_all' | 'seller_all';
+
   // Group 6: การเงิน & สถานะการชำระเงินแยกส่วน
-  paidMaterial?: number;   // ชำระค่าหินแล้ว
-  paidFreight?: number;    // ชำระค่าบรรทุกแล้ว
-  paidAmount: number;      // ยอดที่ชำระแล้วรวม (paidMaterial + paidFreight)
+  paidMaterial?: number;   // ชำระให้ผู้ขายแล้ว (ค่าสินค้า)
+  paidFreight?: number;    // ชำระให้ผู้รับจ้างขนแล้ว (ค่าบรรทุก)
+  paidAmount: number;      // ยอดที่ชำระแล้วรวม (paidMaterial + paidFreight หรือยอดรวมที่ชำระ)
   workStructure: string;   // โครงสร้างงาน / กม. / โครงการ เช่น "สะพาน กม.202+018"
   remark: string;          // หมายเหตุ
   
@@ -65,6 +105,7 @@ export interface ConstructionLogRecord {
 }
 
 export interface ColumnVisibilityState {
+  internalDocNo?: boolean;
   category: boolean;
   date: boolean;
   poNo: boolean;
@@ -94,6 +135,7 @@ export interface ColumnVisibilityState {
   freightAmount?: boolean;
   extraFee: boolean;
   totalAmount: boolean;
+  paymentRecipientType?: boolean;
   paidMaterial?: boolean;
   materialBalance?: boolean;
   paidFreight?: boolean;

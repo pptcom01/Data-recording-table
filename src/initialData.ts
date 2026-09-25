@@ -1,4 +1,4 @@
-import { ConstructionLogRecord } from './types.ts';
+import { ConstructionLogRecord, PendingDocument } from './types.ts';
 
 export const INITIAL_RECORDS: ConstructionLogRecord[] = [
   // 1. เหล็ก / วัสดุสั่งซื้อ PO
@@ -126,6 +126,8 @@ export const INITIAL_RECORDS: ConstructionLogRecord[] = [
   // 2. คอนกรีตผสมเสร็จ / ใบจ่ายสินค้า
   {
     id: "R6",
+    internalDocNo: "DOC-2568-0006",
+    billImageUrl: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1200&q=80",
     category: "คอนกรีต",
     date: "28/10/2568",
     poNo: "598/29851",
@@ -250,6 +252,8 @@ export const INITIAL_RECORDS: ConstructionLogRecord[] = [
   // 4. หินโรงโม่และขนส่ง (รวมหินโรงโม่ หินคลุก และค่าบรรทุกขนส่ง)
   {
     id: "R11",
+    internalDocNo: "DOC-2569-0011",
+    billImageUrl: "https://images.unsplash.com/photo-1590496793929-36417d3117de?auto=format&fit=crop&w=1200&q=80",
     category: "หินโรงโม่และขนส่ง",
     date: "16/3/2569",
     poNo: "-",
@@ -374,11 +378,12 @@ export const INITIAL_RECORDS: ConstructionLogRecord[] = [
     freightAmount: 3749.85,
     extraFee: 65.00,
     totalAmount: 17018.55,
+    paymentRecipientType: "split",
     paidMaterial: 13268.70,
     paidFreight: 0,
     paidAmount: 13268.70,
     workStructure: "-",
-    remark: "จ่ายค่าหินโรงโม่แล้ว (ค้างจ่ายค่าบรรทุกพี่น้อย 3,749.85 บาท)"
+    remark: "จ่ายแยก: จ่ายค่าหินโรงโม่แล้ว (ค้างจ่ายค่าบรรทุกพี่น้อย 3,749.85 บาท)"
   },
   {
     id: "R15",
@@ -410,11 +415,90 @@ export const INITIAL_RECORDS: ConstructionLogRecord[] = [
     freightAmount: 3767.40,
     extraFee: 65.00,
     totalAmount: 17098.20,
+    paymentRecipientType: "split",
     paidMaterial: 0,
     paidFreight: 3767.40,
     paidAmount: 3767.40,
     workStructure: "-",
-    remark: "จ่ายค่าบรรทุกพี่น้อยแล้ว (ค้างจ่ายค่าหินโรงโม่ 13,330.80 บาท)"
+    remark: "จ่ายแยก: จ่ายค่าบรรทุกพี่น้อยแล้ว (ค้างจ่ายค่าหินโรงโม่ 13,330.80 บาท)"
+  },
+
+  // รูปแบบจ่ายให้ ผู้รับจ้างขน เป็น (ค่าสินค้า + ค่าขนส่ง)
+  {
+    id: "R15_B",
+    category: "หินโรงโม่และขนส่ง",
+    date: "24/2/2569",
+    poNo: "-",
+    ticketNo: "69024/00018",
+    rrNo: "-",
+    vendor: "พี่น้อย",
+    quarry: "โรงโม่รุ่งนคร",
+    truckNo: "70-3988",
+    description: "หินคลุก + ค่าขนส่ง (จ่ายผู้รับจ้างขนรวม)",
+    spec: "หินคลุก",
+    grossWt: 76.50,
+    tareWt: 20.40,
+    netWt: 56.10,
+    destTicketNo: "DS-69055",
+    destGrossWt: 76.45,
+    destTareWt: 20.40,
+    destNetWt: 56.05,
+    weightDiffKg: -50,
+    qty: 56.10,
+    unit: "ตัน",
+    pricePerUnit: 230.00,
+    materialAmount: 12903.00,
+    transportType: "hired",
+    haulerName: "พี่น้อย (รับเหมาสินค้า+ขน)",
+    freightRate: 65.00,
+    freightAmount: 3646.50,
+    extraFee: 65.00,
+    totalAmount: 16549.50,
+    paymentRecipientType: "hauler_all",
+    paidMaterial: 0,
+    paidFreight: 16549.50,
+    paidAmount: 16549.50,
+    workStructure: "งานผิวทาง",
+    remark: "จ่ายผู้รับจ้างขน (พี่น้อย) ทั้งหมด: ค่าหิน 12,903 + ค่าขน 3,646.50 รวม 16,549.50 บ. (จ่ายครบแล้ว)"
+  },
+
+  // รูปแบบจ่ายให้ ผู้ขาย (โรงโม่) เป็น (ค่าสินค้า + ค่าขนส่ง)
+  {
+    id: "R15_C",
+    category: "หินโรงโม่และขนส่ง",
+    date: "26/2/2569",
+    poNo: "PO6900112",
+    ticketNo: "69026/00099",
+    rrNo: "-",
+    vendor: "โรงโม่รุ่งนคร",
+    quarry: "โรงโม่รุ่งนคร (ส่งถึงที่)",
+    truckNo: "83-1122",
+    description: "หิน 3/4 + ค่าจัดส่ง (จ่ายผู้ขายรวม)",
+    spec: "หิน 3/4",
+    grossWt: 52.80,
+    tareWt: 21.00,
+    netWt: 31.80,
+    destTicketNo: "DS-69088",
+    destGrossWt: 52.75,
+    destTareWt: 21.00,
+    destNetWt: 31.75,
+    weightDiffKg: -50,
+    qty: 31.80,
+    unit: "ตัน",
+    pricePerUnit: 280.00,
+    materialAmount: 8904.00,
+    transportType: "hired",
+    haulerName: "รถโรงโม่รุ่งนคร",
+    freightRate: 70.00,
+    freightAmount: 2226.00,
+    extraFee: 70.00,
+    totalAmount: 11130.00,
+    paymentRecipientType: "seller_all",
+    paidMaterial: 11130.00,
+    paidFreight: 0,
+    paidAmount: 11130.00,
+    workStructure: "เทสะพาน",
+    remark: "จ่ายผู้ขาย (โรงโม่) ทั้งหมด: รวมค่าหิน 8,904 + ค่าขนส่ง 2,226 รวม 11,130 บ. (จ่ายครบแล้ว)"
   },
 
   // 6. ตัวอย่างเพิ่มเติมจากบิลเอกสารใหม่
@@ -551,11 +635,12 @@ export const INITIAL_RECORDS: ConstructionLogRecord[] = [
 ];
 
 export const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = {
+  internalDocNo: true,
   category: true,
-  date: true,
   poNo: true,
-  ticketNo: true,
   rrNo: true,
+  date: true,
+  ticketNo: true,
   vendor: true,
   quarry: true,
   truckNo: true,
@@ -580,6 +665,7 @@ export const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = {
   freightAmount: true,
   extraFee: false,
   totalAmount: true,
+  paymentRecipientType: true,
   paidMaterial: true,
   materialBalance: true,
   paidFreight: true,
@@ -589,3 +675,100 @@ export const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = {
   workStructure: true,
   remark: true
 };
+
+export const INITIAL_PENDING_DOCUMENTS: PendingDocument[] = [
+  // 1. ตั๋วชั่งปลายทางหน้างาน (Destination Scale Tickets)
+  {
+    id: "PEND-D1",
+    docType: "DEST_TICKET",
+    docNo: "DEST-8891",
+    date: "1/12/2568",
+    truckNo: "84-3288",
+    vendorOrQuarry: "ตราชั่งโครงการสะพาน",
+    description: "ตั๋วชั่งเข้าหน้างานสะพาน กม.202 (หินคลุก)",
+    destGrossWt: 48.50,
+    destTareWt: 16.10,
+    destNetWt: 32.40,
+    status: "pending",
+    source: "line_bot"
+  },
+  {
+    id: "PEND-D2",
+    docType: "DEST_TICKET",
+    docNo: "DEST-8892",
+    date: "1/12/2568",
+    truckNo: "84-3289",
+    vendorOrQuarry: "ตราชั่งโครงการสะพาน",
+    description: "ตั๋วชั่งเข้าหน้างานสะพาน (หิน 1)",
+    destGrossWt: 47.85,
+    destTareWt: 15.75,
+    destNetWt: 32.10,
+    status: "pending",
+    source: "manual"
+  },
+  {
+    id: "PEND-D3",
+    docType: "DEST_TICKET",
+    docNo: "DEST-8905",
+    date: "2/12/2568",
+    truckNo: "70-1122",
+    vendorOrQuarry: "ตราชั่งโครงการสะพาน",
+    description: "ตั๋วปลายทางหน้างาน หินคลุก",
+    destGrossWt: 49.10,
+    destTareWt: 16.20,
+    destNetWt: 32.90,
+    status: "pending",
+    source: "line_bot"
+  },
+
+  // 2. ใบสั่งซื้อ PO ที่ยังรอชนกับตั๋วส่งของ
+  {
+    id: "PEND-P1",
+    docType: "PO",
+    docNo: "PO6800192",
+    date: "1/12/2568",
+    truckNo: "84-3288",
+    vendorOrQuarry: "โรงโม่ยั่งยืน",
+    description: "สั่งซื้อหินคลุก 500 ตัน งานฐานรากสะพาน",
+    poAmount: 85000,
+    poItems: ["หินคลุก 500 ตัน"],
+    status: "pending",
+    source: "manual"
+  },
+  {
+    id: "PEND-P2",
+    docType: "PO",
+    docNo: "PO6900088",
+    date: "15/1/2569",
+    vendorOrQuarry: "ช.หน่อง",
+    description: "สั่งซื้อเหล็กข้ออ้อย DB25 มม. มอก.",
+    poAmount: 250000,
+    poItems: ["DB25 มม. 10ม.", "DB20 มม. 10ม."],
+    status: "pending",
+    source: "import"
+  },
+
+  // 3. ใบตรวจรับพัสดุ RR ที่ฝ่ายสโตร์ออกแล้ว รอนำมาประกบตั๋ว
+  {
+    id: "PEND-R1",
+    docType: "RR",
+    docNo: "RR6812004",
+    date: "1/12/2568",
+    truckNo: "84-3288",
+    vendorOrQuarry: "ผู้ตรวจรับ: สมชาย (สโตร์สะพาน)",
+    description: "ตรวจรับหินคลุก เข้าสต็อกโครงการ",
+    status: "pending",
+    source: "line_bot"
+  },
+  {
+    id: "PEND-R2",
+    docType: "RR",
+    docNo: "RR6812015",
+    date: "2/12/2568",
+    truckNo: "84-3289",
+    vendorOrQuarry: "ผู้ตรวจรับ: ธวัชชัย (คุมงาน)",
+    description: "ตรวจรับหิน 1 เทงานผิวทาง",
+    status: "pending",
+    source: "manual"
+  }
+];

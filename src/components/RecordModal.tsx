@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Calculator, Truck, FileText, Scale } from 'lucide-react';
+import { X, Save, Calculator, Truck, FileText, Scale, CreditCard } from 'lucide-react';
 import { ConstructionLogRecord, ProductCategory } from '../types.ts';
 
 interface RecordModalProps {
@@ -15,6 +15,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
   onSave,
   initialRecord
 }) => {
+  const [internalDocNo, setInternalDocNo] = useState<string>('');
+  const [billImageUrl, setBillImageUrl] = useState<string>('');
   const [category, setCategory] = useState<ProductCategory>('เหล็ก/วัสดุ');
   const [date, setDate] = useState('');
   const [poNo, setPoNo] = useState('');
@@ -50,6 +52,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
   const [freightAmount, setFreightAmount] = useState<string>('0');
   const [extraFee, setExtraFee] = useState<string>('0');
 
+  // รูปแบบการชำระเงิน: 'split' = จ่ายแยก 2 ฝั่ง, 'hauler_all' = จ่ายผู้รับจ้างขน (สินค้า+ขนส่ง), 'seller_all' = จ่ายผู้ขาย (สินค้า+ขนส่ง)
+  const [paymentRecipientType, setPaymentRecipientType] = useState<'split' | 'hauler_all' | 'seller_all'>('split');
+
   // ยอดรวม & ชำระเงิน
   const [totalAmount, setTotalAmount] = useState<string>('0');
   const [paidMaterial, setPaidMaterial] = useState<string>('0');
@@ -61,6 +66,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
   // Populate data when modal opens or initialRecord changes
   useEffect(() => {
     if (initialRecord) {
+      setInternalDocNo(initialRecord.internalDocNo || '');
+      setBillImageUrl(initialRecord.billImageUrl || '');
       setCategory(initialRecord.category || 'เหล็ก/วัสดุ');
       setDate(initialRecord.date || '');
       setPoNo(initialRecord.poNo !== '-' ? initialRecord.poNo : '');
@@ -111,6 +118,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
       setFreightAmount(initialFrAmt ? String(initialFrAmt) : '0');
       setExtraFee(fRate);
 
+      setPaymentRecipientType(initialRecord.paymentRecipientType || 'split');
+
       setTotalAmount(initialRecord.totalAmount ? String(initialRecord.totalAmount) : String(initialMatAmt + initialFrAmt));
       setPaidMaterial(initialRecord.paidMaterial ? String(initialRecord.paidMaterial) : '');
       setPaidFreight(initialRecord.paidFreight ? String(initialRecord.paidFreight) : '');
@@ -123,6 +132,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
       const thaiYear = today.getFullYear() + 543;
       const formattedDate = `${today.getDate()}/${today.getMonth() + 1}/${thaiYear}`;
       
+      setInternalDocNo(`DOC-${thaiYear}-${String(Date.now()).slice(-4)}`);
+      setBillImageUrl('');
       setCategory('หินโรงโม่และขนส่ง');
       setDate(formattedDate);
       setPoNo('');
@@ -154,6 +165,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
       setFreightFeeType('per_unit');
       setFreightAmount('0');
       setExtraFee('0');
+
+      setPaymentRecipientType('split');
 
       setTotalAmount('0');
       setPaidMaterial('0');
@@ -318,6 +331,26 @@ export const RecordModal: React.FC<RecordModalProps> = ({
     setPaidAmount((pMat + pFr).toFixed(2));
   };
 
+  const handlePaymentRecipientTypeChange = (type: 'split' | 'hauler_all' | 'seller_all') => {
+    setPaymentRecipientType(type);
+    const tot = parseFloat(totalAmount) || 0;
+    const currentPaid = parseFloat(paidAmount) || 0;
+
+    if (type === 'hauler_all') {
+      setPaidFreight(currentPaid > 0 ? String(currentPaid) : '0');
+      setPaidMaterial('0');
+    } else if (type === 'seller_all') {
+      setPaidMaterial(currentPaid > 0 ? String(currentPaid) : '0');
+      setPaidFreight('0');
+    } else {
+      // split: restore materialAmount & freightAmount split if currently empty
+      if (currentPaid >= tot && tot > 0) {
+        setPaidMaterial(materialAmount);
+        setPaidFreight(freightAmount);
+      }
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const g = parseFloat(grossWt) || 0;
@@ -338,12 +371,28 @@ export const RecordModal: React.FC<RecordModalProps> = ({
       : 0;
     const total = parseFloat(totalAmount) || (matAmt + frAmt);
 
-    const pMat = parseFloat(paidMaterial) || 0;
-    const pFr = parseFloat(paidFreight) || 0;
-    const paid = parseFloat(paidAmount) || (pMat + pFr);
+    let pMat = 0;
+    let pFr = 0;
+    let paid = 0;
+
+    if (paymentRecipientType === 'hauler_all') {
+      paid = parseFloat(paidAmount) || parseFloat(paidFreight) || 0;
+      pFr = paid;
+      pMat = 0;
+    } else if (paymentRecipientType === 'seller_all') {
+      paid = parseFloat(paidAmount) || parseFloat(paidMaterial) || 0;
+      pMat = paid;
+      pFr = 0;
+    } else {
+      pMat = parseFloat(paidMaterial) || 0;
+      pFr = parseFloat(paidFreight) || 0;
+      paid = parseFloat(paidAmount) || (pMat + pFr);
+    }
 
     const record: ConstructionLogRecord = {
       id: initialRecord?.id || `R${Date.now()}`,
+      internalDocNo: internalDocNo.trim() || initialRecord?.internalDocNo || `DOC-${date.split('/')[2] || '2568'}-${String(Date.now()).slice(-4)}`,
+      billImageUrl: billImageUrl.trim() || undefined,
       category,
       date: date.trim() || '-',
       poNo: poNo.trim() || '-',
@@ -376,6 +425,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
       freightAmount: frAmt,
       extraFee: transportType === 'hired' ? fRate : 0,
       totalAmount: total,
+      paymentRecipientType: transportType === 'self' ? 'seller_all' : paymentRecipientType,
       paidMaterial: pMat,
       paidFreight: pFr,
       paidAmount: paid,
@@ -414,7 +464,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
               <FileText className="w-4 h-4 text-blue-600" />
               <span>1. ข้อมูลเอกสาร & หมวดหมู่</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">หมวดหมู่รายการ *</label>
                 <select
@@ -424,10 +474,32 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                 >
                   <option value="เหล็ก/วัสดุ">เหล็ก / วัสดุสั่งซื้อ (ใบสั่งซื้อ PO)</option>
                   <option value="คอนกรีต">คอนกรีตผสมเสร็จ (ใบส่งของ/ตั๋วคอนกรีต)</option>
-                  <option value="เสาเข็ม">เสาเข็ม & ค่าตอก (ใบเสนอราคา / RR)</option>
+                  <option value="เสาเข็ม">เสาเข็ม & ค่าตอก (เลขที่ RR)</option>
                   <option value="หินโรงโม่และขนส่ง">หินโรงโม่และขนส่ง (ตั๋วชั่ง / หินคลุก / ค่าบรรทุก)</option>
                   <option value="ทั่วไป/อื่นๆ">ทั่วไป / อื่นๆ</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">เลขที่ PO</label>
+                <input
+                  type="text"
+                  value={poNo}
+                  onChange={(e) => setPoNo(e.target.value)}
+                  placeholder="PO6800178"
+                  className="w-full text-xs p-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono-numbers"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">เลขที่ RR</label>
+                <input
+                  type="text"
+                  value={rrNo}
+                  onChange={(e) => setRrNo(e.target.value)}
+                  placeholder="RR6811089"
+                  className="w-full text-xs p-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono-numbers"
+                />
               </div>
 
               <div>
@@ -438,17 +510,6 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   placeholder="เช่น 28/10/2568 หรือ 16/3/2569"
-                  className="w-full text-xs p-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono-numbers"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">เลขที่ใบสั่งซื้อ (PO)</label>
-                <input
-                  type="text"
-                  value={poNo}
-                  onChange={(e) => setPoNo(e.target.value)}
-                  placeholder="PO6800178"
                   className="w-full text-xs p-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono-numbers"
                 />
               </div>
@@ -470,20 +531,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
           <div className="border border-purple-100 bg-purple-50/20 p-4 rounded-xl space-y-3">
             <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800 uppercase tracking-wide">
               <Truck className="w-4 h-4 text-purple-600" />
-              <span>2. สถานที่ ผู้รับเหมา & การขนส่ง</span>
+              <span>2. สถานที่ โรงโม่ ผู้รับเหมา & การขนส่ง</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">ผู้รับเหมา / บริษัท</label>
-                <input
-                  type="text"
-                  value={vendor}
-                  onChange={(e) => setVendor(e.target.value)}
-                  placeholder="ช.หน่อง / บุรีรัมย์ธงชัย"
-                  className="w-full text-xs p-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">โรงโม่ / ชื่อกิจการ</label>
                 <input
@@ -496,23 +546,23 @@ export const RecordModal: React.FC<RecordModalProps> = ({
               </div>
 
               <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">ผู้รับเหมา / บริษัท</label>
+                <input
+                  type="text"
+                  value={vendor}
+                  onChange={(e) => setVendor(e.target.value)}
+                  placeholder="ช.หน่อง / บุรีรัมย์ธงชัย"
+                  className="w-full text-xs p-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">ชุด / ทะเบียนรถ</label>
                 <input
                   type="text"
                   value={truckNo}
                   onChange={(e) => setTruckNo(e.target.value)}
                   placeholder="84-3288 (พี่น้อย)"
-                  className="w-full text-xs p-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 font-mono-numbers"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">เลขใบเสนอราคา / RR</label>
-                <input
-                  type="text"
-                  value={rrNo}
-                  onChange={(e) => setRrNo(e.target.value)}
-                  placeholder="RR6811089"
                   className="w-full text-xs p-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 font-mono-numbers"
                 />
               </div>
@@ -889,29 +939,340 @@ export const RecordModal: React.FC<RecordModalProps> = ({
               )}
             </div>
 
-            {/* ส่วนที่ 3: สรุปยอดรวมทั้งสิ้น & ชำระเงินแยก 2 ส่วน */}
+            {/* ส่วนที่ 3: สรุปยอดรวมทั้งสิ้น & รูปแบบการชำระเงิน */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3.5">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center justify-between border-b border-slate-200 pb-2.5 gap-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
                   <CreditCard className="w-4 h-4 text-emerald-600" />
-                  การชำระเงิน (แยกจ่ายให้ผู้ขาย และ ผู้รับจ้างขน)
-                </span>
+                  <span>การชำระเงิน (3 รูปแบบ: จ่ายแยก / จ่ายผู้รับจ้างขนรวม / จ่ายผู้ขายรวม)</span>
+                </div>
                 <span className="text-[11px] text-slate-500">
-                  บันทึกแยกยอดชำระของโรงโม่ และ รถขนส่ง
+                  เลือกว่าจะจ่ายแยก 2 ฝั่ง หรือจ่ายรวมให้ฝั่งใดฝั่งหนึ่ง
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* 1. ชำระให้ผู้ขาย (ค่าหิน) */}
+              {/* Selector for Payment Scheme */}
+              {transportType === 'hired' && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    เลือกรูปแบบการชำระเงินของรายการนี้:
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* Option 1: จ่ายแยก */}
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentRecipientTypeChange('split')}
+                      className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                        paymentRecipientType === 'split'
+                          ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-500/20 shadow-xs'
+                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                          <span>🔀</span> จ่ายแยก 2 ฝั่ง
+                        </span>
+                        {paymentRecipientType === 'split' && (
+                          <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-1 leading-tight">
+                        ผู้ขาย (ค่าหิน) + ผู้รับจ้างขน (ค่าขนส่ง)
+                      </div>
+                    </button>
+
+                    {/* Option 2: จ่ายผู้รับจ้างขน (สินค้า + ขนส่ง) */}
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentRecipientTypeChange('hauler_all')}
+                      className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                        paymentRecipientType === 'hauler_all'
+                          ? 'bg-sky-50 border-sky-400 ring-2 ring-sky-500/20 shadow-xs'
+                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                          <span>🚛</span> จ่ายผู้รับจ้างขน
+                        </span>
+                        {paymentRecipientType === 'hauler_all' && (
+                          <span className="w-2 h-2 rounded-full bg-sky-600"></span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-1 leading-tight">
+                        จ่ายให้ผู้รับจ้างขน (ค่าสินค้า + ค่าขนส่ง)
+                      </div>
+                    </button>
+
+                    {/* Option 3: จ่ายผู้ขาย (สินค้า + ขนส่ง) */}
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentRecipientTypeChange('seller_all')}
+                      className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                        paymentRecipientType === 'seller_all'
+                          ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-500/20 shadow-xs'
+                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                          <span>🏭</span> จ่ายผู้ขาย/โรงโม่
+                        </span>
+                        {paymentRecipientType === 'seller_all' && (
+                          <span className="w-2 h-2 rounded-full bg-amber-600"></span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-1 leading-tight">
+                        จ่ายให้ผู้ขาย (ค่าสินค้า + ค่าขนส่ง)
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Mode 1: จ่ายแยก 2 ฝั่ง */}
+              {paymentRecipientType === 'split' && transportType === 'hired' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* 1. ชำระให้ผู้ขาย (ค่าหิน) */}
+                  <div className="bg-amber-50/70 p-3 rounded-lg border border-amber-200 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-amber-950">
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                        1. ชำระให้ผู้ขาย ({quarry || vendor || 'โรงโม่'})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handlePaidMaterialChange(materialAmount)}
+                        className="text-[10px] px-2 py-0.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded font-semibold transition-colors"
+                      >
+                        จ่ายครบค่าหิน
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-amber-900 mb-1">
+                        ชำระค่าสินค้า/หินแล้ว (บาท)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={paidMaterial}
+                        onChange={(e) => handlePaidMaterialChange(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-mono-numbers"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] pt-1 text-amber-900">
+                      <span>ยอดค่าหิน: {(parseFloat(materialAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บ.</span>
+                      <span className={`font-semibold ${
+                        (parseFloat(materialAmount) || 0) - (parseFloat(paidMaterial) || 0) > 0 ? 'text-rose-700' : 'text-emerald-700'
+                      }`}>
+                        ค้างจ่ายผู้ขาย: {Math.max(0, (parseFloat(materialAmount) || 0) - (parseFloat(paidMaterial) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บ.
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 2. ชำระให้ผู้รับจ้างขน */}
+                  <div className="bg-sky-50/70 p-3 rounded-lg border border-sky-200 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-sky-950">
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-sky-500"></span>
+                        2. ชำระให้ผู้รับจ้างขน ({haulerName || 'รถร่วม'})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handlePaidFreightChange(freightAmount)}
+                        className="text-[10px] px-2 py-0.5 bg-sky-200 hover:bg-sky-300 text-sky-900 rounded font-semibold transition-colors"
+                      >
+                        จ่ายครบค่าขน
+                      </button>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-sky-900 mb-1">
+                        ชำระค่าบรรทุกแล้ว (บาท)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={paidFreight}
+                        onChange={(e) => handlePaidFreightChange(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full text-xs p-2 bg-white border border-sky-300 rounded-lg focus:ring-2 focus:ring-sky-500 font-mono-numbers"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] pt-1 text-sky-900">
+                      <span>ยอดค่าขน: {(parseFloat(freightAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บ.</span>
+                      <span className={`font-semibold ${
+                        (parseFloat(freightAmount) || 0) - (parseFloat(paidFreight) || 0) > 0 ? 'text-rose-700' : 'text-emerald-700'
+                      }`}>
+                        ค้างจ่ายค่าขน: {Math.max(0, (parseFloat(freightAmount) || 0) - (parseFloat(paidFreight) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บ.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Mode 2: จ่ายให้ผู้รับจ้างขน (ค่าสินค้า + ค่าขนส่ง) */}
+              {paymentRecipientType === 'hauler_all' && transportType === 'hired' && (
+                <div className="bg-sky-50/80 p-4 rounded-xl border border-sky-300 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sky-200 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🚛</span>
+                      <div>
+                        <div className="text-xs font-bold text-sky-950">
+                          จ่ายให้ผู้รับจ้างขน ({haulerName || 'รถรับจ้าง'}) ทั้งหมด (ค่าสินค้า + ค่าขนส่ง)
+                        </div>
+                        <div className="text-[11px] text-sky-800">
+                          ผู้รับจ้างขนส่งเป็นผู้รับเงินเต็มก้อนรวมทั้งสิ้น ฿{(parseFloat(totalAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บ.
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaidAmount(totalAmount);
+                        setPaidFreight(totalAmount);
+                        setPaidMaterial('0');
+                      }}
+                      className="text-xs px-3 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-semibold shadow-xs transition"
+                    >
+                      จ่ายครบเต็มจำนวน (฿{(parseFloat(totalAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-sky-900 mb-1">
+                        ยอดเงินที่ชำระให้ผู้รับจ้างขนแล้ว (บาท) *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={paidAmount}
+                        onChange={(e) => {
+                          setPaidAmount(e.target.value);
+                          setPaidFreight(e.target.value);
+                          setPaidMaterial('0');
+                        }}
+                        placeholder="0.00"
+                        className="w-full text-xs p-2.5 bg-white border border-sky-300 rounded-lg focus:ring-2 focus:ring-sky-500 font-mono-numbers font-bold text-slate-800 text-base"
+                      />
+                    </div>
+
+                    <div className="bg-white/80 p-3 rounded-lg border border-sky-200 flex flex-col justify-center space-y-1 text-xs">
+                      <div className="flex justify-between text-slate-600">
+                        <span>ค่าสินค้า (ค่าหิน):</span>
+                        <span className="font-mono-numbers">฿{(parseFloat(materialAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>ค่าขนส่ง (ค่าบรรทุก):</span>
+                        <span className="font-mono-numbers">฿{(parseFloat(freightAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-sky-950 pt-1 border-t border-sky-100">
+                        <span>รวมที่ต้องจ่ายผู้รับจ้างขน:</span>
+                        <span className="font-mono-numbers">฿{(parseFloat(totalAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-1 px-1">
+                    <span className="text-slate-500">คงค้างจ่ายผู้ขาย (โรงโม่): 0.00 บ. (จ่ายผ่านผู้รับจ้างขน)</span>
+                    <span className={`font-bold font-mono-numbers ${
+                      (parseFloat(totalAmount) || 0) - (parseFloat(paidAmount) || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'
+                    }`}>
+                      คงค้างจ่ายผู้รับจ้างขน: {Math.max(0, (parseFloat(totalAmount) || 0) - (parseFloat(paidAmount) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Mode 3: จ่ายให้ผู้ขาย (ค่าสินค้า + ค่าขนส่ง) */}
+              {paymentRecipientType === 'seller_all' && transportType === 'hired' && (
+                <div className="bg-amber-50/80 p-4 rounded-xl border border-amber-300 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🏭</span>
+                      <div>
+                        <div className="text-xs font-bold text-amber-950">
+                          จ่ายให้ผู้ขาย ({quarry || vendor || 'โรงโม่'}) ทั้งหมด (ค่าสินค้า + ค่าขนส่ง)
+                        </div>
+                        <div className="text-[11px] text-amber-800">
+                          ผู้ขาย/โรงโม่เป็นผู้เรียกเก็บเงินรวมทั้งก้อน (รวมค่าส่งถึงที่) ฿{(parseFloat(totalAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บ.
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaidAmount(totalAmount);
+                        setPaidMaterial(totalAmount);
+                        setPaidFreight('0');
+                      }}
+                      className="text-xs px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold shadow-xs transition"
+                    >
+                      จ่ายครบเต็มจำนวน (฿{(parseFloat(totalAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-amber-900 mb-1">
+                        ยอดเงินที่ชำระให้ผู้ขายแล้ว (บาท) *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={paidAmount}
+                        onChange={(e) => {
+                          setPaidAmount(e.target.value);
+                          setPaidMaterial(e.target.value);
+                          setPaidFreight('0');
+                        }}
+                        placeholder="0.00"
+                        className="w-full text-xs p-2.5 bg-white border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-mono-numbers font-bold text-slate-800 text-base"
+                      />
+                    </div>
+
+                    <div className="bg-white/80 p-3 rounded-lg border border-amber-200 flex flex-col justify-center space-y-1 text-xs">
+                      <div className="flex justify-between text-slate-600">
+                        <span>ค่าสินค้า (ค่าหิน):</span>
+                        <span className="font-mono-numbers">฿{(parseFloat(materialAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>ค่าขนส่ง (จัดส่งถึงที่):</span>
+                        <span className="font-mono-numbers">฿{(parseFloat(freightAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-amber-950 pt-1 border-t border-amber-100">
+                        <span>รวมที่ต้องจ่ายผู้ขาย/โรงโม่:</span>
+                        <span className="font-mono-numbers">฿{(parseFloat(totalAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-1 px-1">
+                    <span className="text-slate-500">คงค้างจ่ายผู้รับจ้างขน: 0.00 บ. (โรงโม่รวมค่าส่งแล้ว)</span>
+                    <span className={`font-bold font-mono-numbers ${
+                      (parseFloat(totalAmount) || 0) - (parseFloat(paidAmount) || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'
+                    }`}>
+                      คงค้างจ่ายผู้ขาย: {Math.max(0, (parseFloat(totalAmount) || 0) - (parseFloat(paidAmount) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Mode 4: วิ่งหินเอง (Self Haul) */}
+              {transportType === 'self' && (
                 <div className="bg-amber-50/70 p-3 rounded-lg border border-amber-200 space-y-2">
                   <div className="flex items-center justify-between text-xs font-bold text-amber-950">
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                      1. ชำระให้ผู้ขาย (โรงโม่/ร้านค้า)
+                      ชำระให้ผู้ขาย (โรงโม่/ร้านค้า) - วิ่งหินเอง
                     </span>
                     <button
                       type="button"
-                      onClick={() => handlePaidMaterialChange(materialAmount)}
+                      onClick={() => {
+                        handlePaidMaterialChange(materialAmount);
+                        setPaidAmount(materialAmount);
+                      }}
                       className="text-[10px] px-2 py-0.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded font-semibold transition-colors"
                     >
                       จ่ายครบเต็มจำนวน
@@ -923,7 +1284,10 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                       type="number"
                       step="0.01"
                       value={paidMaterial}
-                      onChange={(e) => handlePaidMaterialChange(e.target.value)}
+                      onChange={(e) => {
+                        handlePaidMaterialChange(e.target.value);
+                        setPaidAmount(e.target.value);
+                      }}
                       placeholder="0.00"
                       className="w-full text-xs p-2 bg-white border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-mono-numbers"
                     />
@@ -937,55 +1301,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                     </span>
                   </div>
                 </div>
-
-                {/* 2. ชำระให้ผู้รับจ้างขน */}
-                <div className="bg-sky-50/70 p-3 rounded-lg border border-sky-200 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-sky-950">
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-sky-500"></span>
-                      2. ชำระให้ผู้รับจ้างขน (ค่าบรรทุก)
-                    </span>
-                    {transportType === 'hired' && (
-                      <button
-                        type="button"
-                        onClick={() => handlePaidFreightChange(freightAmount)}
-                        className="text-[10px] px-2 py-0.5 bg-sky-200 hover:bg-sky-300 text-sky-900 rounded font-semibold transition-colors"
-                      >
-                        จ่ายครบเต็มจำนวน
-                      </button>
-                    )}
-                  </div>
-                  {transportType === 'self' ? (
-                    <div className="text-xs text-sky-800 py-3.5 text-center bg-white/70 rounded-lg border border-sky-100 font-medium">
-                      🚗 วิ่งหินเอง (ไม่มีค่าจ้างบรรทุกที่ต้องจ่าย)
-                    </div>
-                  ) : (
-                    <>
-                      <div>
-                        <label className="block text-[11px] font-medium text-sky-900 mb-1">
-                          ชำระค่าบรรทุกแล้ว ({haulerName || 'รถร่วม'}) (บาท)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={paidFreight}
-                          onChange={(e) => handlePaidFreightChange(e.target.value)}
-                          placeholder="0.00"
-                          className="w-full text-xs p-2 bg-white border border-sky-300 rounded-lg focus:ring-2 focus:ring-sky-500 font-mono-numbers"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] pt-1 text-sky-900">
-                        <span>ยอดค่าขน: {(parseFloat(freightAmount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บ.</span>
-                        <span className={`font-semibold ${
-                          (parseFloat(freightAmount) || 0) - (parseFloat(paidFreight) || 0) > 0 ? 'text-rose-700' : 'text-emerald-700'
-                        }`}>
-                          ค้างจ่ายค่าขน: {Math.max(0, (parseFloat(freightAmount) || 0) - (parseFloat(paidFreight) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บ.
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
+              )}
 
               {/* สรุปรวมทั้ง 2 ส่วน */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center pt-1 border-t border-slate-200/80">

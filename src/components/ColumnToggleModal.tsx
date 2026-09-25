@@ -15,18 +15,18 @@ const COLUMN_GROUPS = [
     bgColor: "bg-blue-50 text-blue-900 border-blue-200",
     columns: [
       { key: "category", label: "หมวดหมู่รายการ" },
-      { key: "date", label: "วัน/เดือน/ปี" },
       { key: "poNo", label: "เลขที่ PO" },
-      { key: "ticketNo", label: "เลขใบจ่ายสินค้า/ตั๋วชั่ง" },
-      { key: "rrNo", label: "ใบเสนอราคา / RR" }
+      { key: "rrNo", label: "เลขที่ RR" },
+      { key: "date", label: "วัน/เดือน/ปี" },
+      { key: "ticketNo", label: "เลขใบจ่ายสินค้า/ตั๋วชั่ง" }
     ]
   },
   {
     groupName: "2. สถานที่ & ขนส่ง",
     bgColor: "bg-purple-50 text-purple-900 border-purple-200",
     columns: [
-      { key: "vendor", label: "ผู้รับเหมา / บริษัท" },
       { key: "quarry", label: "โรงโม่ / กิจการ" },
+      { key: "vendor", label: "ผู้รับเหมา / บริษัท" },
       { key: "truckNo", label: "ทะเบียนรถ / ชุดรถ" }
     ]
   },
@@ -73,6 +73,7 @@ const COLUMN_GROUPS = [
     groupName: "6. การเงิน & โครงการ",
     bgColor: "bg-teal-50 text-teal-900 border-teal-200",
     columns: [
+      { key: "paymentRecipientType", label: "รูปแบบการจ่าย (แยก/ผู้รับจ้าง/ผู้ขาย)" },
       { key: "paidMaterial", label: "จ่ายผู้ขายแล้ว (ค่าหิน)" },
       { key: "materialBalance", label: "คงค้างจ่ายผู้ขาย" },
       { key: "paidFreight", label: "จ่ายผู้รับจ้างขนแล้ว" },
