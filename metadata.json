@@ -1,0 +1,6 @@
+{
+  "name": "ตารางบันทึกข้อมูลจัดซื้อและขนส่งรวม (Unified Master Log)",
+  "description": "ระบบบันทึกและจัดการข้อมูลจัดซื้อ ขนส่ง และการเงินโครงสร้างงานก่อสร้าง รวม 5 หมวดหมู่ในตารางเดียวพร้อมสรุปยอดและส่งออกข้อมูล",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
